@@ -1,10 +1,23 @@
-const Pool = require('pg').Pool;
+const pg = require('pg');
 require('dotenv').config();
 
-const connectionString = "Server=test-postgresql-publicconnection.postgres.database.azure.com;Database=postgres;Port=5432;User Id=evatheodoridou;Password=abcd!123;Ssl Mode=Require;"
+// const connectionString = "Server=test-postgresql-publicconnection.postgres.database.azure.com;Database=postgres;Port=5432;User Id=evatheodoridou;Password=abcd!123;Ssl Mode=Require;"
 //const connectionString = `Database=${process.env.POSTGRES_DB};Server=${process.env.POSTGRES_SERVER};User Id=${process.env.POSTGRES_USERNAME};Password=${process.env.POSTGRES_PASSWORD};Port=5432`;
-console.log(connectionString);
-const pool = new Pool({ connectionString });
+// console.log(connectionString);
+
+const config = {
+    host: 'test-postgresql-publicconnection.postgres.database.azure.com',
+    // Do not hard code your username and password.
+    // Consider using Node environment variables.
+    user: 'evatheodoridou',     
+    password: 'abcd!123',
+    database: 'postgres',
+    port: 5432,
+    ssl: true
+};
+
+const client = new pg.Client(config);
+// const pool = new Pool({ connectionString });
 
 const selectExists = `SELECT EXISTS (
   SELECT * FROM pg_tables
@@ -18,36 +31,44 @@ const createDB = `CREATE TABLE todoitems(
 );`
  
 const initializeDatabase = (callback) => {
-  console.log('Initialize database');
-  pool.query(selectExists, (error, result) => {
-    console.log(result);
-    if (error) {
-      console.log(`Failed to query todoitems table: ${error}`);
-      callback();
+  console.log('Initialize database')
+  client.connect(err => {
+    if (err) {
+      console.log(err);
+      throw err;
       return;
-    }
-
-    if (!result.rows[0].exists) {
-      console.log('TodoItems table was not found.  Creating...');
-      pool.query(createDB, (error) => {
+    } else {
+        client.query(selectExists, (error, result) => {
+        console.log(result);
         if (error) {
-          console.log(error);
-          throw Error('Failed to initialize todoitems table');
+          console.log(`Failed to query todoitems table: ${error}`);
+          callback();
+          return;
         }
-
-        callback();
+    
+        if (!result.rows[0].exists) {
+          console.log('TodoItems table was not found.  Creating...');
+          client.query(createDB, (error) => {
+            if (error) {
+              console.log(error);
+              throw Error('Failed to initialize todoitems table');
+            }
+    
+            callback();
+          })
+    
+          return;
+        } else{
+          console.log('TodoItems table exists');
+          callback();
+        }
       })
-
-      return;
-    } else{
-      console.log('TodoItems table exists');
-      callback();
     }
-  })
+  });
 }
 
 const getItems = (request, response) => {
-  pool.query('SELECT * FROM TodoItems', (error, results) => {
+  client.query('SELECT * FROM TodoItems', (error, results) => {
     if (error) {
       console.log(error);
       return;
@@ -59,7 +80,7 @@ const getItems = (request, response) => {
 const addItem = (request, response) => {
   const { description } = request.body;
 
-  pool.query(
+  client.query(
     'INSERT INTO TodoItems (Description) VALUES ($1) RETURNING *',
     [description],
     (error, results) => {
@@ -76,7 +97,7 @@ const addItem = (request, response) => {
 const deleteItem = (request, response) => {
   const id = parseInt(request.params.id);
 
-  pool.query('DELETE FROM TodoItems WHERE id = $1', [id], (error, results) => {
+  client.query('DELETE FROM TodoItems WHERE id = $1', [id], (error, results) => {
     if (error) {
       console.log(error);
       response.status(500).send(error.message);
