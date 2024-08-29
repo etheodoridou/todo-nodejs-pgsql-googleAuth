@@ -6,13 +6,13 @@ require('dotenv').config();
 // console.log(connectionString);
 
 const config = {
-    host: 'test-postgresql-publicconnection.postgres.database.azure.com',
+    host: process.env.POSTGRES_SERVER,
     // Do not hard code your username and password.
     // Consider using Node environment variables.
-    user: 'evatheodoridou',     
-    password: 'abcd!123',
-    database: 'postgres',
-    port: 5432,
+    user: process.env.POSTGRES_USERNAME,     
+    password: process.env.POSTGRES_PASSWORD,
+    database: process.env.POSTGRES_DB,
+    port: process.env.POSTGRES_PORT,
     ssl: true
 };
 
